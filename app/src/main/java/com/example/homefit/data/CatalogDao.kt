@@ -8,6 +8,7 @@ import androidx.room.Update
 import com.example.homefit.model.Exercise
 import com.example.homefit.model.ProgramExercise
 import com.example.homefit.model.WorkoutProgram
+import kotlinx.coroutines.flow.Flow
 
 /**
  * Consistent read of a live program plan inside a single Room transaction.
@@ -24,6 +25,9 @@ data class PlanSnapshot(
 
 @Dao
 abstract class CatalogDao {
+
+    @Query("SELECT * FROM workout_programs ORDER BY name")
+    abstract fun observePrograms(): Flow<List<WorkoutProgram>>
 
     @Query("SELECT * FROM workout_programs WHERE id = :programId")
     abstract suspend fun getProgramById(programId: String): WorkoutProgram?
@@ -70,7 +74,12 @@ abstract class CatalogDao {
         )
     }
 
-    // TODO [P2.6]: TEMPORARY P2.3 scaffolding — REMOVE AFTER P2.6 (real program selection replaces this).
+    /**
+     * Inserts the built-in starter catalog graph atomically (P2.6).
+     *
+     * Part of the permanent provisioning mechanism, see
+     * [WorkoutRepository.ensureDefaultProgram].
+     */
     @Transaction
     open suspend fun insertDefaultProgramTx(
         exercises: List<Exercise>,

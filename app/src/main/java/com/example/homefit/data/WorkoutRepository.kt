@@ -36,40 +36,47 @@ class WorkoutRepository(
     private val workoutDao: WorkoutDao,
 ) {
 
-    // TODO [P2.6]: TEMPORARY P2.3 scaffolding — REMOVE AFTER P2.6 (real program selection replaces this).
+    /**
+     * Stable ids of the built-in starter catalog (P2.6).
+     *
+     * The catalog is provisioned on demand by [ensureDefaultProgram] and is a
+     * permanent part of the app: a fresh install always has at least one
+     * selectable program. Ids are stable so existing installs and historical
+     * sessions keep working.
+     */
     private companion object {
-        // TODO [P2.6]: TEMPORARY P2.3 scaffolding — REMOVE AFTER P2.6 (real program selection replaces this).
         private const val DEFAULT_PROGRAM_ID = "default-program"
 
-        // TODO [P2.6]: TEMPORARY P2.3 scaffolding — REMOVE AFTER P2.6 (real program selection replaces this).
         private const val DEFAULT_EXERCISE_1_ID = "default-exercise-1"
 
-        // TODO [P2.6]: TEMPORARY P2.3 scaffolding — REMOVE AFTER P2.6 (real program selection replaces this).
         private const val DEFAULT_EXERCISE_2_ID = "default-exercise-2"
 
-        // TODO [P2.6]: TEMPORARY P2.3 scaffolding — REMOVE AFTER P2.6 (real program selection replaces this).
         private const val DEFAULT_EXERCISE_3_ID = "default-exercise-3"
 
-        // TODO [P2.6]: TEMPORARY P2.3 scaffolding — REMOVE AFTER P2.6 (real program selection replaces this).
         private const val DEFAULT_PROGRAM_EXERCISE_1_ID = "default-program-exercise-1"
 
-        // TODO [P2.6]: TEMPORARY P2.3 scaffolding — REMOVE AFTER P2.6 (real program selection replaces this).
         private const val DEFAULT_PROGRAM_EXERCISE_2_ID = "default-program-exercise-2"
 
-        // TODO [P2.6]: TEMPORARY P2.3 scaffolding — REMOVE AFTER P2.6 (real program selection replaces this).
         private const val DEFAULT_PROGRAM_EXERCISE_3_ID = "default-program-exercise-3"
     }
 
     /**
-     * Returns the id of the temporary default program, creating it on first call.
+     * Observes the program catalog for the P2.6 program selection screen.
+     *
+     * Plain delegation to [CatalogDao.observePrograms]: no validation and no
+     * provisioning happen here. An empty list is a normal state (rendered as
+     * the selection empty state), not an error.
+     */
+    fun observePrograms(): Flow<List<WorkoutProgram>> =
+        catalogDao.observePrograms()
+
+    /**
+     * Returns the id of the built-in starter program, creating it on first call.
      *
      * Idempotent: when the program already exists nothing is inserted.
-     * The whole seed graph is created atomically via
+     * The whole catalog graph is created atomically via
      * [CatalogDao.insertDefaultProgramTx].
-     *
-     * TODO [P2.6]: TEMPORARY P2.3 scaffolding — REMOVE AFTER P2.6 (real program selection replaces this).
      */
-    // TODO [P2.6]: TEMPORARY P2.3 scaffolding — REMOVE AFTER P2.6 (real program selection replaces this).
     suspend fun ensureDefaultProgram(): String {
         if (catalogDao.getProgramById(DEFAULT_PROGRAM_ID) != null) {
             return DEFAULT_PROGRAM_ID

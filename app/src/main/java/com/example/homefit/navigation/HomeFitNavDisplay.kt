@@ -16,6 +16,9 @@ import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import com.example.homefit.data.WorkoutRepository
 import com.example.homefit.ui.screens.home.HomeScreen
+import com.example.homefit.ui.screens.programselection.ProgramSelectionScreen
+import com.example.homefit.ui.screens.programselection.ProgramSelectionViewModel
+import com.example.homefit.ui.screens.programselection.ProgramSelectionViewModelFactory
 import com.example.homefit.ui.screens.workout.WorkoutScreen
 import com.example.homefit.ui.screens.workout.WorkoutViewModel
 import com.example.homefit.ui.screens.workout.WorkoutViewModelFactory
@@ -38,17 +41,29 @@ fun HomeFitNavDisplay(
         ),
         entryProvider = entryProvider {
             entry<Home> {
+                HomeScreen(
+                    onStartWorkout = dropUnlessResumed {
+                        backStack.add(ProgramSelection)
+                    },
+                )
+            }
+            entry<ProgramSelection> {
+                val selectionViewModel: ProgramSelectionViewModel = viewModel(
+                    factory = ProgramSelectionViewModelFactory(
+                        repository = workoutRepository,
+                    ),
+                )
                 val scope = rememberCoroutineScope()
                 var isStartingWorkout by remember { mutableStateOf(false) }
                 var startErrorMessage by remember { mutableStateOf<String?>(null) }
-                HomeScreen(
-                    onStartWorkout = dropUnlessResumed {
-                        if (isStartingWorkout) return@dropUnlessResumed
+                ProgramSelectionScreen(
+                    viewModel = selectionViewModel,
+                    onProgramSelected = { programId ->
+                        if (isStartingWorkout) return@ProgramSelectionScreen
                         isStartingWorkout = true
                         startErrorMessage = null
                         scope.launch {
                             try {
-                                val programId = workoutRepository.ensureDefaultProgram()
                                 val sessionId = workoutRepository.startWorkout(programId)
                                 backStack.add(Workout(sessionId))
                             } catch (e: IllegalStateException) {
@@ -65,7 +80,7 @@ fun HomeFitNavDisplay(
                             }
                         }
                     },
-                    startErrorMessage = startErrorMessage
+                    startErrorMessage = startErrorMessage,
                 )
             }
             entry<Workout> { key ->
