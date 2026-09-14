@@ -2,6 +2,9 @@ package com.example.homefit.data
 
 import android.database.sqlite.SQLiteConstraintException
 import androidx.room.withTransaction
+import com.example.homefit.model.Exercise
+import com.example.homefit.model.ProgramExercise
+import com.example.homefit.model.WorkoutProgram
 import com.example.homefit.model.WorkoutSession
 import com.example.homefit.model.WorkoutSessionExercise
 import com.example.homefit.model.WorkoutSet
@@ -32,6 +35,101 @@ class WorkoutRepository(
     private val catalogDao: CatalogDao,
     private val workoutDao: WorkoutDao,
 ) {
+
+    // TODO [P2.6]: TEMPORARY P2.3 scaffolding — REMOVE AFTER P2.6 (real program selection replaces this).
+    private companion object {
+        // TODO [P2.6]: TEMPORARY P2.3 scaffolding — REMOVE AFTER P2.6 (real program selection replaces this).
+        private const val DEFAULT_PROGRAM_ID = "default-program"
+
+        // TODO [P2.6]: TEMPORARY P2.3 scaffolding — REMOVE AFTER P2.6 (real program selection replaces this).
+        private const val DEFAULT_EXERCISE_1_ID = "default-exercise-1"
+
+        // TODO [P2.6]: TEMPORARY P2.3 scaffolding — REMOVE AFTER P2.6 (real program selection replaces this).
+        private const val DEFAULT_EXERCISE_2_ID = "default-exercise-2"
+
+        // TODO [P2.6]: TEMPORARY P2.3 scaffolding — REMOVE AFTER P2.6 (real program selection replaces this).
+        private const val DEFAULT_EXERCISE_3_ID = "default-exercise-3"
+
+        // TODO [P2.6]: TEMPORARY P2.3 scaffolding — REMOVE AFTER P2.6 (real program selection replaces this).
+        private const val DEFAULT_PROGRAM_EXERCISE_1_ID = "default-program-exercise-1"
+
+        // TODO [P2.6]: TEMPORARY P2.3 scaffolding — REMOVE AFTER P2.6 (real program selection replaces this).
+        private const val DEFAULT_PROGRAM_EXERCISE_2_ID = "default-program-exercise-2"
+
+        // TODO [P2.6]: TEMPORARY P2.3 scaffolding — REMOVE AFTER P2.6 (real program selection replaces this).
+        private const val DEFAULT_PROGRAM_EXERCISE_3_ID = "default-program-exercise-3"
+    }
+
+    /**
+     * Returns the id of the temporary default program, creating it on first call.
+     *
+     * Idempotent: when the program already exists nothing is inserted.
+     * The whole seed graph is created atomically via
+     * [CatalogDao.insertDefaultProgramTx].
+     *
+     * TODO [P2.6]: TEMPORARY P2.3 scaffolding — REMOVE AFTER P2.6 (real program selection replaces this).
+     */
+    // TODO [P2.6]: TEMPORARY P2.3 scaffolding — REMOVE AFTER P2.6 (real program selection replaces this).
+    suspend fun ensureDefaultProgram(): String {
+        if (catalogDao.getProgramById(DEFAULT_PROGRAM_ID) != null) {
+            return DEFAULT_PROGRAM_ID
+        }
+        try {
+            catalogDao.insertDefaultProgramTx(
+                exercises = listOf(
+                    Exercise(
+                        id = DEFAULT_EXERCISE_1_ID,
+                        name = "Default Exercise 1",
+                    ),
+                    Exercise(
+                        id = DEFAULT_EXERCISE_2_ID,
+                        name = "Default Exercise 2",
+                    ),
+                    Exercise(
+                        id = DEFAULT_EXERCISE_3_ID,
+                        name = "Default Exercise 3",
+                    ),
+                ),
+                program = WorkoutProgram(
+                    id = DEFAULT_PROGRAM_ID,
+                    name = "Default Program",
+                ),
+                items = listOf(
+                    ProgramExercise(
+                        id = DEFAULT_PROGRAM_EXERCISE_1_ID,
+                        programId = DEFAULT_PROGRAM_ID,
+                        exerciseId = DEFAULT_EXERCISE_1_ID,
+                        position = 0,
+                        targetSets = 3,
+                        targetReps = 10,
+                    ),
+                    ProgramExercise(
+                        id = DEFAULT_PROGRAM_EXERCISE_2_ID,
+                        programId = DEFAULT_PROGRAM_ID,
+                        exerciseId = DEFAULT_EXERCISE_2_ID,
+                        position = 1,
+                        targetSets = 3,
+                        targetReps = 12,
+                    ),
+                    ProgramExercise(
+                        id = DEFAULT_PROGRAM_EXERCISE_3_ID,
+                        programId = DEFAULT_PROGRAM_ID,
+                        exerciseId = DEFAULT_EXERCISE_3_ID,
+                        position = 2,
+                        targetSets = 3,
+                        targetReps = 8,
+                        targetWeight = 10.0,
+                    ),
+                ),
+            )
+        } catch (e: SQLiteConstraintException) {
+            // Concurrent ensureDefaultProgram() won: the graph already exists.
+            check(catalogDao.getProgramById(DEFAULT_PROGRAM_ID) != null) {
+                "Default program seed failed"
+            }
+        }
+        return DEFAULT_PROGRAM_ID
+    }
 
     /**
      * Freezes a live program plan into a new historical session graph.

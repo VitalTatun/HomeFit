@@ -69,4 +69,16 @@ abstract class CatalogDao {
             exercisesById = exercisesById,
         )
     }
+
+    // TODO [P2.6]: TEMPORARY P2.3 scaffolding — REMOVE AFTER P2.6 (real program selection replaces this).
+    @Transaction
+    open suspend fun insertDefaultProgramTx(
+        exercises: List<Exercise>,
+        program: WorkoutProgram,
+        items: List<ProgramExercise>,
+    ) {
+        exercises.forEach { insertExercise(it) }
+        insertProgram(program)
+        insertProgramExercises(items)
+    }
 }
