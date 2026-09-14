@@ -7,6 +7,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
@@ -16,6 +17,9 @@ import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import com.example.homefit.data.WorkoutRepository
 import com.example.homefit.ui.screens.home.HomeScreen
+import com.example.homefit.ui.screens.home.HomeUiState
+import com.example.homefit.ui.screens.home.HomeViewModel
+import com.example.homefit.ui.screens.home.HomeViewModelFactory
 import com.example.homefit.ui.screens.programselection.ProgramSelectionScreen
 import com.example.homefit.ui.screens.programselection.ProgramSelectionViewModel
 import com.example.homefit.ui.screens.programselection.ProgramSelectionViewModelFactory
@@ -41,9 +45,32 @@ fun HomeFitNavDisplay(
         ),
         entryProvider = entryProvider {
             entry<Home> {
+                val homeViewModel: HomeViewModel = viewModel(
+                    factory = HomeViewModelFactory(
+                        repository = workoutRepository,
+                    ),
+                )
+                val homeState by homeViewModel.uiState.collectAsStateWithLifecycle()
+                var isResumingWorkout by remember { mutableStateOf(false) }
+                val activeSession = (homeState as? HomeUiState.Content)?.activeSession
                 HomeScreen(
+                    activeSession = activeSession,
                     onStartWorkout = dropUnlessResumed {
                         backStack.add(ProgramSelection)
+                    },
+                    onResumeWorkout = dropUnlessResumed {
+                        val sessionId = activeSession?.id ?: return@dropUnlessResumed
+                        if (isResumingWorkout) return@dropUnlessResumed
+                        // Dedupe: the top entry is already this workout.
+                        if (backStack.lastOrNull() == Workout(sessionId)) return@dropUnlessResumed
+                        isResumingWorkout = true
+                        try {
+                            // Resume reopens the existing session id.
+                            // It never calls startWorkout(), so no new session is created.
+                            backStack.add(Workout(sessionId))
+                        } finally {
+                            isResumingWorkout = false
+                        }
                     },
                 )
             }
