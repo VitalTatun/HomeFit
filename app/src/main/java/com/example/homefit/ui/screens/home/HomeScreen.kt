@@ -18,7 +18,8 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun HomeScreen(
     onStartWorkout: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    startErrorMessage: String? = null
 ) {
     Column(
         modifier = modifier
@@ -40,6 +41,15 @@ fun HomeScreen(
             textAlign = TextAlign.Center
         )
         Spacer(modifier = Modifier.height(24.dp))
+        if (startErrorMessage != null) {
+            Text(
+                text = startErrorMessage,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+        }
         Button(onClick = onStartWorkout) {
             Text("Начать тренировку")
         }

@@ -34,20 +34,32 @@ fun HomeFitNavDisplay(
             entry<Home> {
                 val scope = rememberCoroutineScope()
                 var isStartingWorkout by remember { mutableStateOf(false) }
+                var startErrorMessage by remember { mutableStateOf<String?>(null) }
                 HomeScreen(
                     onStartWorkout = dropUnlessResumed {
                         if (isStartingWorkout) return@dropUnlessResumed
                         isStartingWorkout = true
+                        startErrorMessage = null
                         scope.launch {
                             try {
                                 val programId = workoutRepository.ensureDefaultProgram()
                                 val sessionId = workoutRepository.startWorkout(programId)
                                 backStack.add(Workout(sessionId))
+                            } catch (e: IllegalStateException) {
+                                // Expected conflict: an unfinished session already exists.
+                                // Show it instead of crashing; anything else is rethrown
+                                // so unexpected errors are never masked as this conflict.
+                                if (e.message?.contains("already active") == true) {
+                                    startErrorMessage = "Тренировка уже запущена"
+                                } else {
+                                    throw e
+                                }
                             } finally {
                                 isStartingWorkout = false
                             }
                         }
-                    }
+                    },
+                    startErrorMessage = startErrorMessage
                 )
             }
             entry<Workout> { key ->
