@@ -5,3 +5,6 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data object Home : NavKey
+
+@Serializable
+data object Workout : NavKey
