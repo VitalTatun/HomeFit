@@ -132,6 +132,39 @@ class WorkoutViewModel(
         _recordErrors.value = _recordErrors.value - sessionExerciseId
     }
 
+    private val _deletingSets = MutableStateFlow<Set<String>>(emptySet())
+
+    /** Ids of sets with an in-flight [deleteSet] call. */
+    val deletingSets: StateFlow<Set<String>> = _deletingSets
+
+    /**
+     * Deletes one recorded set.
+     *
+     * Guarded against double-tap: a second call for the same set while one
+     * is in flight is ignored. A failure is surfaced through the existing
+     * per-exercise [recordErrors] slot of the exercise owning the set.
+     */
+    fun deleteSet(setId: String) {
+        if (_deletingSets.value.contains(setId)) return
+        viewModelScope.launch {
+            _deletingSets.value = _deletingSets.value + setId
+            try {
+                repository.deleteSet(setId)
+            } catch (e: Exception) {
+                val exerciseId = (uiState.value as? WorkoutUiState.Active)
+                    ?.exercises
+                    ?.firstOrNull { exercise -> exercise.sets.any { it.id == setId } }
+                    ?.item?.id
+                if (exerciseId != null) {
+                    _recordErrors.value =
+                        _recordErrors.value + (exerciseId to (e.message ?: "Не удалось удалить подход"))
+                }
+            } finally {
+                _deletingSets.value = _deletingSets.value - setId
+            }
+        }
+    }
+
     /**
      * Marks the session finished. Guarded against double-tap: a second call
      * while one is in flight is ignored. On success emits [navigateHome].

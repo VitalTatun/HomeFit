@@ -50,6 +50,7 @@ fun WorkoutScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val isFinishing by viewModel.isFinishing.collectAsStateWithLifecycle()
     val recordingExercises by viewModel.recordingExercises.collectAsStateWithLifecycle()
+    val deletingSets by viewModel.deletingSets.collectAsStateWithLifecycle()
     val recordErrors by viewModel.recordErrors.collectAsStateWithLifecycle()
     val finishError by viewModel.finishError.collectAsStateWithLifecycle()
 
@@ -72,9 +73,11 @@ fun WorkoutScreen(
             readOnly = false,
             isFinishing = isFinishing,
             recordingExercises = recordingExercises,
+            deletingSets = deletingSets,
             recordErrors = recordErrors,
             finishError = finishError,
             onAddSet = viewModel::recordSet,
+            onDeleteSet = viewModel::deleteSet,
             onConsumeRecordError = viewModel::consumeRecordError,
             onFinish = viewModel::finishWorkout,
             modifier = modifier,
@@ -85,9 +88,11 @@ fun WorkoutScreen(
             readOnly = true,
             isFinishing = false,
             recordingExercises = emptySet(),
+            deletingSets = emptySet(),
             recordErrors = emptyMap(),
             finishError = null,
             onAddSet = { _, _, _ -> },
+            onDeleteSet = {},
             onConsumeRecordError = {},
             onFinish = onFinished,
             finishedButtonLabel = "На главную",
@@ -176,9 +181,11 @@ private fun WorkoutContent(
     readOnly: Boolean,
     isFinishing: Boolean,
     recordingExercises: Set<String>,
+    deletingSets: Set<String>,
     recordErrors: Map<String, String?>,
     finishError: String?,
     onAddSet: (sessionExerciseId: String, actualReps: Int, actualWeight: Double?) -> Unit,
+    onDeleteSet: (setId: String) -> Unit,
     onConsumeRecordError: (sessionExerciseId: String) -> Unit,
     onFinish: () -> Unit,
     modifier: Modifier = Modifier,
@@ -223,8 +230,10 @@ private fun WorkoutContent(
                     exercise = exercise,
                     readOnly = readOnly,
                     isRecording = recordingExercises.contains(exercise.item.id),
+                    deletingSets = deletingSets,
                     recordError = recordErrors[exercise.item.id],
                     onAddSet = onAddSet,
+                    onDeleteSet = onDeleteSet,
                     onConsumeRecordError = onConsumeRecordError,
                 )
             }
@@ -259,8 +268,10 @@ private fun ExerciseCard(
     exercise: ExerciseWithSets,
     readOnly: Boolean,
     isRecording: Boolean,
+    deletingSets: Set<String>,
     recordError: String?,
     onAddSet: (sessionExerciseId: String, actualReps: Int, actualWeight: Double?) -> Unit,
+    onDeleteSet: (setId: String) -> Unit,
     onConsumeRecordError: (sessionExerciseId: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -286,9 +297,11 @@ private fun ExerciseCard(
                 )
             } else {
                 exercise.sets.sortedBy { it.setIndex }.forEach { set ->
-                    Text(
-                        text = formatSet(set),
-                        style = MaterialTheme.typography.bodyMedium,
+                    SetRow(
+                        set = set,
+                        showDelete = !readOnly,
+                        isDeleting = deletingSets.contains(set.id),
+                        onDeleteSet = onDeleteSet,
                     )
                 }
             }
@@ -304,6 +317,34 @@ private fun ExerciseCard(
                     },
                     onConsumeError = { onConsumeRecordError(item.id) },
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SetRow(
+    set: WorkoutSet,
+    showDelete: Boolean,
+    isDeleting: Boolean,
+    onDeleteSet: (setId: String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = formatSet(set),
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f),
+        )
+        if (showDelete) {
+            TextButton(
+                onClick = { onDeleteSet(set.id) },
+                enabled = !isDeleting,
+            ) {
+                Text("Удалить")
             }
         }
     }

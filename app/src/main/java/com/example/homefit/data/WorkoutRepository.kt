@@ -267,6 +267,16 @@ class WorkoutRepository(
     }
 
     /**
+     * Deletes one recorded set by id. Deleting a missing id is a no-op.
+     *
+     * The UI only exposes this for active sessions; existing sets are never
+     * renumbered after a delete.
+     */
+    suspend fun deleteSet(setId: String) {
+        workoutDao.deleteSetById(setId)
+    }
+
+    /**
      * Marks a session finished. Re-finishing is a no-op: the first
      * `finishedAt` value is never overwritten.
      */

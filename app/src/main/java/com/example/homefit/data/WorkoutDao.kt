@@ -84,6 +84,9 @@ abstract class WorkoutDao {
     @Delete
     abstract suspend fun deleteSet(set: WorkoutSet)
 
+    @Query("DELETE FROM workout_sets WHERE id = :setId")
+    abstract suspend fun deleteSetById(setId: String)
+
     @Query(
         "UPDATE workout_sessions SET finishedAt = :now " +
             "WHERE id = :id AND finishedAt IS NULL",
