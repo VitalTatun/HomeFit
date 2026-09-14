@@ -28,6 +28,7 @@ class MainActivity : ComponentActivity() {
                     }
                 ) { innerPadding ->
                     HomeFitNavDisplay(
+                        workoutRepository = (application as HomeFitApplication).workoutRepository,
                         modifier = Modifier.padding(innerPadding)
                     )
                 }

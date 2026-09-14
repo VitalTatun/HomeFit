@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 fun WorkoutScreen(
+    sessionId: String,
     modifier: Modifier = Modifier
 ) {
     Column(

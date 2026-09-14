@@ -7,4 +7,6 @@ import kotlinx.serialization.Serializable
 data object Home : NavKey
 
 @Serializable
-data object Workout : NavKey
+data class Workout(
+    val sessionId: String,
+) : NavKey
