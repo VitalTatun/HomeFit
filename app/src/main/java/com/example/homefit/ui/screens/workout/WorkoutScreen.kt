@@ -196,26 +196,6 @@ private fun WorkoutContent(
             .fillMaxSize()
             .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
-        if (readOnly) {
-            Text(
-                text = "Тренировка завершена",
-                style = MaterialTheme.typography.headlineSmall,
-            )
-        }
-        Text(
-            text = session.programName,
-            style = if (readOnly) {
-                MaterialTheme.typography.titleMedium
-            } else {
-                MaterialTheme.typography.headlineSmall
-            },
-            color = if (readOnly) {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            } else {
-                MaterialTheme.colorScheme.onSurface
-            },
-        )
-        Spacer(modifier = Modifier.height(8.dp))
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()

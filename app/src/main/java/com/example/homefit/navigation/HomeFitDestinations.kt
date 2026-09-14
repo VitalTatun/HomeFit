@@ -10,6 +10,11 @@ data object Home : NavKey
 data object ProgramSelection : NavKey
 
 @Serializable
+data class ProgramEditor(
+    val programId: String?,
+) : NavKey
+
+@Serializable
 data class Workout(
     val sessionId: String,
 ) : NavKey

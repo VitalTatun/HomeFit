@@ -25,6 +25,33 @@ data class ObservedWorkoutSession(
 )
 
 /**
+ * Reactive projection of a live program plan for the Program Editor.
+ *
+ * Mirrors [PlanSnapshot] but stays reactive: `items` are ordered by
+ * `position`, `exercisesById` covers only referenced exercises.
+ */
+data class ProgramDetail(
+    val program: WorkoutProgram,
+    val items: List<ProgramExercise>,
+    val exercisesById: Map<String, Exercise>,
+)
+
+/**
+ * Editor input for one program row.
+ *
+ * `id == null` means "new row" (a fresh id is generated on save);
+ * non-null ids must belong to the saved program, otherwise save fails.
+ * Positions are never taken from the caller: the repository normalizes
+ * them to 0..n-1 in list order before writing.
+ */
+data class ProgramItemInput(
+    val id: String? = null,
+    val exerciseId: String,
+    val targetSets: Int,
+    val targetReps: Int,
+    val targetWeight: Double? = null,
+)
+/**
  * Application boundary between the execution layer and Room.
  *
  * Owns application-level validation and id generation. DAOs are kept private
@@ -69,6 +96,154 @@ class WorkoutRepository(
      */
     fun observePrograms(): Flow<List<WorkoutProgram>> =
         catalogDao.observePrograms()
+
+    /**
+     * Observes one program graph for the Program Editor.
+     *
+     * Emits `null` when the program does not exist. Items are already
+     * ordered by `position` by the DAO query.
+     */
+    fun observeProgramDetail(programId: String): Flow<ProgramDetail?> =
+        combine(
+            catalogDao.observeProgramById(programId),
+            catalogDao.observeProgramExercises(programId),
+            catalogDao.observeExercises(),
+        ) { program, items, exercises ->
+            if (program == null) {
+                null
+            } else {
+                val byId = exercises.associateBy { it.id }
+                    .filterKeys { id -> items.any { it.exerciseId == id } }
+                ProgramDetail(program, items, byId)
+            }
+        }
+
+    /**
+     * Observes the exercise catalog for the Program Editor picker.
+     */
+    fun observeExercises(): Flow<List<Exercise>> =
+        catalogDao.observeExercises()
+
+    /**
+     * Creates a new program graph atomically.
+     *
+     * Positions are normalized to 0..n-1 in list order; callers never set
+     * them. Targets use the same rules as [startWorkout].
+     */
+    suspend fun createProgram(
+        name: String,
+        description: String? = null,
+        items: List<ProgramItemInput> = emptyList(),
+    ): String {
+        require(name.isNotBlank()) { "Invalid program name: blank" }
+        require(items.all { it.id == null }) {
+            "Invalid program item: new program cannot reuse existing ids"
+        }
+        validateEditorInputs(items)
+        val exerciseIds = items.map { it.exerciseId }.distinct()
+        if (exerciseIds.isNotEmpty()) {
+            val found = catalogDao.getExercisesByIds(exerciseIds).map { it.id }.toSet()
+            exerciseIds.forEach { id ->
+                check(found.contains(id)) { "Cannot save program: exercise not found: $id" }
+            }
+        }
+
+        val programId = UUID.randomUUID().toString()
+        val program = WorkoutProgram(id = programId, name = name, description = description)
+        val rows = items.mapIndexed { index, input ->
+            ProgramExercise(
+                id = UUID.randomUUID().toString(),
+                programId = programId,
+                exerciseId = input.exerciseId,
+                position = index,
+                targetSets = input.targetSets,
+                targetReps = input.targetReps,
+                targetWeight = input.targetWeight,
+            )
+        }
+        catalogDao.createProgramGraphTx(program, rows)
+        return programId
+    }
+
+    /**
+     * Saves a program graph atomically (rename + add/update/remove/reorder).
+     *
+     * Rows absent from [items] are deleted, `id == null` rows are inserted,
+     * kept rows are updated in place with normalized positions. The DAO moves
+     * kept rows through a negative temporary range first, so reorder never
+     * violates the unique (programId, position) index.
+     */
+    suspend fun saveProgram(
+        program: WorkoutProgram,
+        items: List<ProgramItemInput>,
+    ) {
+        require(program.name.isNotBlank()) { "Invalid program name: blank" }
+        catalogDao.getProgramById(program.id)
+            ?: throw IllegalArgumentException("Program not found: ${program.id}")
+        validateEditorInputs(items)
+
+        val nonNullIds = items.mapNotNull { it.id }
+        require(nonNullIds.size == nonNullIds.toSet().size) {
+            "Invalid program items: duplicate ids"
+        }
+        val existingIds = catalogDao.getProgramExercisesOrdered(program.id)
+            .map { it.id }.toSet()
+        nonNullIds.forEach { id ->
+            require(existingIds.contains(id)) {
+                "Invalid program item id: $id does not belong to program: ${program.id}"
+            }
+        }
+
+        val exerciseIds = items.map { it.exerciseId }.distinct()
+        if (exerciseIds.isNotEmpty()) {
+            val found = catalogDao.getExercisesByIds(exerciseIds).map { it.id }.toSet()
+            exerciseIds.forEach { id ->
+                check(found.contains(id)) { "Cannot save program: exercise not found: $id" }
+            }
+        }
+
+        val rows = items.mapIndexed { index, input ->
+            ProgramExercise(
+                id = input.id ?: UUID.randomUUID().toString(),
+                programId = program.id,
+                exerciseId = input.exerciseId,
+                position = index,
+                targetSets = input.targetSets,
+                targetReps = input.targetReps,
+                targetWeight = input.targetWeight,
+            )
+        }
+        catalogDao.replaceProgramGraphTx(program, rows)
+    }
+
+    /**
+     * Deletes a program graph atomically.
+     *
+     * Historical sessions are unaffected: they store a frozen snapshot.
+     * Throws [IllegalArgumentException] when the program does not exist.
+     */
+    suspend fun deleteProgram(programId: String) {
+        catalogDao.getProgramById(programId)
+            ?: throw IllegalArgumentException("Program not found: $programId")
+        catalogDao.deleteProgramGraphTx(programId)
+    }
+
+    /**
+     * Shared editor validation, mirroring the [startWorkout] target rules.
+     */
+    private fun validateEditorInputs(items: List<ProgramItemInput>) {
+        items.forEach { input ->
+            require(input.targetSets >= 1) {
+                "Invalid targetSets (${input.targetSets}) in program exercise: ${input.id ?: input.exerciseId}"
+            }
+            require(input.targetReps >= 1) {
+                "Invalid targetReps (${input.targetReps}) in program exercise: ${input.id ?: input.exerciseId}"
+            }
+            require(input.targetWeight == null || input.targetWeight > 0) {
+                "Invalid targetWeight (${input.targetWeight}) in program exercise: ${input.id ?: input.exerciseId}"
+            }
+        }
+    }
 
     /**
      * Returns the id of the built-in starter program, creating it on first call.

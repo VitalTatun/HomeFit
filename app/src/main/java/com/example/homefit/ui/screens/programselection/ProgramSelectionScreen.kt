@@ -2,6 +2,7 @@ package com.example.homefit.ui.screens.programselection
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,6 +14,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -29,12 +31,15 @@ import com.example.homefit.model.WorkoutProgram
  * Navigation stays outside: [onProgramSelected] only reports the chosen
  * program id, `HomeFitNavDisplay` performs `startWorkout` and the back stack
  * update (including the double-tap guard and the "already active" message
- * surfaced via [startErrorMessage]).
+ * surfaced via [startErrorMessage]). [onCreateProgram] / [onEditProgram]
+ * only request navigation to the Program Editor.
  */
 @Composable
 fun ProgramSelectionScreen(
     viewModel: ProgramSelectionViewModel,
     onProgramSelected: (String) -> Unit,
+    onCreateProgram: () -> Unit,
+    onEditProgram: (String) -> Unit,
     modifier: Modifier = Modifier,
     startErrorMessage: String? = null,
 ) {
@@ -45,13 +50,13 @@ fun ProgramSelectionScreen(
             .fillMaxSize()
             .padding(horizontal = 24.dp, vertical = 16.dp),
     ) {
-        Text(
-            text = "Выбор программы",
-            style = MaterialTheme.typography.headlineSmall,
-            textAlign = TextAlign.Center,
+        Button(
+            onClick = onCreateProgram,
             modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(modifier = Modifier.height(16.dp))
+        ) {
+            Text("Создать программу")
+        }
+        Spacer(modifier = Modifier.height(8.dp))
         if (startErrorMessage != null) {
             Text(
                 text = startErrorMessage,
@@ -64,7 +69,10 @@ fun ProgramSelectionScreen(
         }
         when (val current = state) {
             ProgramSelectionUiState.Loading -> SelectionLoading(Modifier.weight(1f))
-            ProgramSelectionUiState.Empty -> SelectionEmpty(Modifier.weight(1f))
+            ProgramSelectionUiState.Empty -> SelectionEmpty(
+                onCreateProgram = onCreateProgram,
+                modifier = Modifier.weight(1f),
+            )
             is ProgramSelectionUiState.Error -> SelectionError(
                 message = current.message,
                 onRetry = viewModel::retry,
@@ -73,6 +81,7 @@ fun ProgramSelectionScreen(
             is ProgramSelectionUiState.Content -> ProgramList(
                 programs = current.programs,
                 onProgramSelected = onProgramSelected,
+                onEditProgram = onEditProgram,
                 modifier = Modifier.weight(1f),
             )
         }
@@ -91,7 +100,10 @@ private fun SelectionLoading(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun SelectionEmpty(modifier: Modifier = Modifier) {
+private fun SelectionEmpty(
+    onCreateProgram: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.Center,
@@ -103,6 +115,10 @@ private fun SelectionEmpty(modifier: Modifier = Modifier) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
+        Spacer(modifier = Modifier.height(8.dp))
+        Button(onClick = onCreateProgram) {
+            Text("Создать программу")
+        }
     }
 }
 
@@ -134,6 +150,7 @@ private fun SelectionError(
 private fun ProgramList(
     programs: List<WorkoutProgram>,
     onProgramSelected: (String) -> Unit,
+    onEditProgram: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -141,11 +158,20 @@ private fun ProgramList(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         items(programs, key = { it.id }) { program ->
-            Button(
-                onClick = { onProgramSelected(program.id) },
+            Row(
                 modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text(program.name)
+                Button(
+                    onClick = { onProgramSelected(program.id) },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(program.name)
+                }
+                TextButton(onClick = { onEditProgram(program.id) }) {
+                    Text("Ред.")
+                }
             }
         }
     }
