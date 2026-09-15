@@ -1,5 +1,8 @@
 package com.example.homefit.ui.screens.programselection
 
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -42,17 +46,26 @@ fun ProgramSelectionScreen(
     onEditProgram: (String) -> Unit,
     modifier: Modifier = Modifier,
     startErrorMessage: String? = null,
+    contentPadding: PaddingValues = PaddingValues(0.dp)
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val layoutDirection = LocalLayoutDirection.current
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 24.dp, vertical = 16.dp),
+            .padding(top = contentPadding.calculateTopPadding()),
     ) {
         Button(
             onClick = onCreateProgram,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    start = 24.dp + contentPadding.calculateStartPadding(layoutDirection),
+                    top = 16.dp,
+                    end = 24.dp + contentPadding.calculateEndPadding(layoutDirection),
+                    bottom = 0.dp
+                ),
         ) {
             Text("Создать программу")
         }
@@ -63,26 +76,37 @@ fun ProgramSelectionScreen(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.error,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
             )
             Spacer(modifier = Modifier.height(8.dp))
         }
         when (val current = state) {
-            ProgramSelectionUiState.Loading -> SelectionLoading(Modifier.weight(1f))
+            ProgramSelectionUiState.Loading -> SelectionLoading(
+                Modifier
+                    .weight(1f)
+                    .padding(bottom = contentPadding.calculateBottomPadding())
+            )
             ProgramSelectionUiState.Empty -> SelectionEmpty(
                 onCreateProgram = onCreateProgram,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(bottom = contentPadding.calculateBottomPadding()),
             )
             is ProgramSelectionUiState.Error -> SelectionError(
                 message = current.message,
                 onRetry = viewModel::retry,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(bottom = contentPadding.calculateBottomPadding()),
             )
             is ProgramSelectionUiState.Content -> ProgramList(
                 programs = current.programs,
                 onProgramSelected = onProgramSelected,
                 onEditProgram = onEditProgram,
                 modifier = Modifier.weight(1f),
+                contentPadding = contentPadding
             )
         }
     }
@@ -152,9 +176,17 @@ private fun ProgramList(
     onProgramSelected: (String) -> Unit,
     onEditProgram: (String) -> Unit,
     modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(0.dp)
 ) {
+    val layoutDirection = LocalLayoutDirection.current
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(
+            start = 24.dp + contentPadding.calculateStartPadding(layoutDirection),
+            top = 8.dp,
+            end = 24.dp + contentPadding.calculateEndPadding(layoutDirection),
+            bottom = 16.dp + contentPadding.calculateBottomPadding()
+        ),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         items(programs, key = { it.id }) { program ->

@@ -1,5 +1,8 @@
 package com.example.homefit.ui.screens.programeditor
 
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -23,6 +26,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -46,6 +50,7 @@ fun ProgramEditorScreen(
     onCancel: () -> Unit,
     onSaved: () -> Unit,
     modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(0.dp)
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -54,13 +59,24 @@ fun ProgramEditorScreen(
     }
 
     when (val current = state) {
-        ProgramEditorUiState.Loading -> EditorLoading(modifier)
-        ProgramEditorUiState.Missing -> EditorMissing(onCancel, modifier)
+        ProgramEditorUiState.Loading -> EditorLoading(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(top = contentPadding.calculateTopPadding(), bottom = contentPadding.calculateBottomPadding())
+        )
+        ProgramEditorUiState.Missing -> EditorMissing(
+            onBack = onCancel,
+            modifier = modifier
+                .fillMaxSize()
+                .padding(top = contentPadding.calculateTopPadding(), bottom = contentPadding.calculateBottomPadding())
+        )
         is ProgramEditorUiState.Error -> EditorError(
             message = current.message,
             onRetry = viewModel::retry,
             onBack = onCancel,
-            modifier = modifier,
+            modifier = modifier
+                .fillMaxSize()
+                .padding(top = contentPadding.calculateTopPadding(), bottom = contentPadding.calculateBottomPadding())
         )
         is ProgramEditorUiState.Content -> EditorContent(
             state = current,
@@ -72,6 +88,7 @@ fun ProgramEditorScreen(
             onRemoveRow = viewModel::onRemoveRow,
             onAddExercise = viewModel::onAddExercise,
             modifier = modifier,
+            contentPadding = contentPadding
         )
     }
 }
@@ -160,34 +177,51 @@ private fun EditorContent(
     onRemoveRow: (key: String) -> Unit,
     onAddExercise: (exerciseId: String) -> Unit,
     modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(0.dp)
 ) {
+    val layoutDirection = LocalLayoutDirection.current
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(top = contentPadding.calculateTopPadding()),
     ) {
-        OutlinedTextField(
-            value = state.name,
-            onValueChange = onNameChange,
-            label = { Text("Название") },
-            singleLine = true,
-            enabled = !state.isSaving,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        OutlinedTextField(
-            value = state.description,
-            onValueChange = onDescriptionChange,
-            label = { Text("Описание (необязательно)") },
-            singleLine = true,
-            enabled = !state.isSaving,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        Column(
+            modifier = Modifier
+                .padding(
+                    start = 16.dp + contentPadding.calculateStartPadding(layoutDirection),
+                    top = 8.dp,
+                    end = 16.dp + contentPadding.calculateEndPadding(layoutDirection)
+                )
+        ) {
+            OutlinedTextField(
+                value = state.name,
+                onValueChange = onNameChange,
+                label = { Text("Название") },
+                singleLine = true,
+                enabled = !state.isSaving,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = state.description,
+                onValueChange = onDescriptionChange,
+                label = { Text("Описание (необязательно)") },
+                singleLine = true,
+                enabled = !state.isSaving,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
         Spacer(modifier = Modifier.height(8.dp))
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f),
+            contentPadding = PaddingValues(
+                start = 16.dp + contentPadding.calculateStartPadding(layoutDirection),
+                top = 0.dp,
+                end = 16.dp + contentPadding.calculateEndPadding(layoutDirection),
+                bottom = 8.dp + contentPadding.calculateBottomPadding()
+            ),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (state.rows.isEmpty()) {
@@ -217,14 +251,15 @@ private fun EditorContent(
                     onAddExercise = onAddExercise,
                 )
             }
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        if (state.saveError != null) {
-            Text(
-                text = state.saveError,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-            )
+            if (state.saveError != null) {
+                item {
+                    Text(
+                        text = state.saveError,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
         }
     }
 }

@@ -1,5 +1,8 @@
 package com.example.homefit.ui.screens.workout
 
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -26,6 +29,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -46,6 +50,7 @@ fun WorkoutScreen(
     onFinished: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(0.dp)
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val isFinishing by viewModel.isFinishing.collectAsStateWithLifecycle()
@@ -59,13 +64,24 @@ fun WorkoutScreen(
     }
 
     when (val current = state) {
-        WorkoutUiState.Loading -> WorkoutLoading(modifier)
-        WorkoutUiState.Missing -> WorkoutMissing(onBack, modifier)
+        WorkoutUiState.Loading -> WorkoutLoading(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(top = contentPadding.calculateTopPadding(), bottom = contentPadding.calculateBottomPadding())
+        )
+        WorkoutUiState.Missing -> WorkoutMissing(
+            onBack = onBack,
+            modifier = modifier
+                .fillMaxSize()
+                .padding(top = contentPadding.calculateTopPadding(), bottom = contentPadding.calculateBottomPadding())
+        )
         is WorkoutUiState.Error -> WorkoutError(
             message = current.message,
             onRetry = viewModel::retry,
             onBack = onBack,
-            modifier = modifier,
+            modifier = modifier
+                .fillMaxSize()
+                .padding(top = contentPadding.calculateTopPadding(), bottom = contentPadding.calculateBottomPadding())
         )
         is WorkoutUiState.Active -> WorkoutContent(
             session = current.session,
@@ -81,6 +97,7 @@ fun WorkoutScreen(
             onConsumeRecordError = viewModel::consumeRecordError,
             onFinish = viewModel::finishWorkout,
             modifier = modifier,
+            contentPadding = contentPadding
         )
         is WorkoutUiState.Finished -> WorkoutContent(
             session = current.session,
@@ -97,6 +114,7 @@ fun WorkoutScreen(
             onFinish = onFinished,
             finishedButtonLabel = "На главную",
             modifier = modifier,
+            contentPadding = contentPadding
         )
     }
 }
@@ -190,16 +208,24 @@ private fun WorkoutContent(
     onFinish: () -> Unit,
     modifier: Modifier = Modifier,
     finishedButtonLabel: String = "Завершить тренировку",
+    contentPadding: PaddingValues = PaddingValues(0.dp)
 ) {
+    val layoutDirection = LocalLayoutDirection.current
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(top = contentPadding.calculateTopPadding()),
     ) {
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f),
+            contentPadding = PaddingValues(
+                start = 16.dp + contentPadding.calculateStartPadding(layoutDirection),
+                top = 8.dp,
+                end = 16.dp + contentPadding.calculateEndPadding(layoutDirection),
+                bottom = 12.dp
+            ),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             items(
@@ -219,26 +245,35 @@ private fun WorkoutContent(
             }
         }
         Spacer(modifier = Modifier.height(8.dp))
-        if (finishError != null) {
-            Text(
-                text = finishError,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-        }
-        Button(
-            onClick = onFinish,
-            enabled = !isFinishing,
-            modifier = Modifier.fillMaxWidth(),
+        Column(
+            modifier = Modifier
+                .padding(
+                    start = 16.dp + contentPadding.calculateStartPadding(layoutDirection),
+                    end = 16.dp + contentPadding.calculateEndPadding(layoutDirection),
+                    bottom = 8.dp + contentPadding.calculateBottomPadding()
+                )
         ) {
-            Text(
-                if (isFinishing) {
-                    "Завершение..."
-                } else {
-                    finishedButtonLabel
-                },
-            )
+            if (finishError != null) {
+                Text(
+                    text = finishError,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+            }
+            Button(
+                onClick = onFinish,
+                enabled = !isFinishing,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    if (isFinishing) {
+                        "Завершение..."
+                    } else {
+                        finishedButtonLabel
+                    },
+                )
+            }
         }
     }
 }

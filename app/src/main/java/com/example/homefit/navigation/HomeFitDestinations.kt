@@ -7,6 +7,12 @@ import kotlinx.serialization.Serializable
 data object Home : NavKey
 
 @Serializable
+data object History : NavKey
+
+@Serializable
+data object Statistics : NavKey
+
+@Serializable
 data object ProgramSelection : NavKey
 
 @Serializable

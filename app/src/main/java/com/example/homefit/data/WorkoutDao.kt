@@ -6,6 +6,7 @@ import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
+import com.example.homefit.model.FinishedSessionSet
 import com.example.homefit.model.WorkoutSession
 import com.example.homefit.model.WorkoutSessionExercise
 import com.example.homefit.model.WorkoutSet
@@ -34,6 +35,33 @@ abstract class WorkoutDao {
         insertSession(session)
         insertSessionItems(items)
     }
+
+    @Query(
+        "SELECT * FROM workout_sessions " +
+            "WHERE finishedAt IS NOT NULL " +
+            "ORDER BY startedAt DESC",
+    )
+    abstract fun observeFinishedSessions(): Flow<List<WorkoutSession>>
+
+    /**
+     * Observes every recorded set of finished sessions for statistics.
+     *
+     * Active (unfinished) sessions are excluded via `finishedAt IS NOT NULL`,
+     * keeping statistics consistent with the History screen. Returns a plain
+     * projection ([FinishedSessionSet]), not entities: no schema change.
+     */
+    @Query(
+        "SELECT s.id AS setId, " +
+            "i.exerciseId AS exerciseId, " +
+            "i.exerciseName AS exerciseName, " +
+            "s.actualReps AS actualReps, " +
+            "s.actualWeight AS actualWeight " +
+            "FROM workout_sets AS s " +
+            "INNER JOIN workout_session_exercises AS i ON s.sessionExerciseId = i.id " +
+            "INNER JOIN workout_sessions AS sess ON i.sessionId = sess.id " +
+            "WHERE sess.finishedAt IS NOT NULL",
+    )
+    abstract fun observeFinishedSets(): Flow<List<FinishedSessionSet>>
 
     @Query("SELECT * FROM workout_sessions WHERE id = :id")
     abstract fun observeSession(id: String): Flow<WorkoutSession?>

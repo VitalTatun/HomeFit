@@ -3,6 +3,7 @@ package com.example.homefit.data
 import android.database.sqlite.SQLiteConstraintException
 import androidx.room.withTransaction
 import com.example.homefit.model.Exercise
+import com.example.homefit.model.FinishedSessionSet
 import com.example.homefit.model.ProgramExercise
 import com.example.homefit.model.WorkoutProgram
 import com.example.homefit.model.WorkoutSession
@@ -50,6 +51,37 @@ data class ProgramItemInput(
     val targetSets: Int,
     val targetReps: Int,
     val targetWeight: Double? = null,
+)
+
+/**
+ * Aggregated progress of one exercise across all finished sessions.
+ *
+ * `sets` counts every recorded set, including zero-rep ones; `totalReps`
+ * and `totalVolumeKg` only grow from performed reps (`actualWeight == null`
+ * contributes volume 0, i.e. bodyweight work adds reps but no kilograms).
+ */
+data class ExerciseProgress(
+    val exerciseId: String,
+    val exerciseName: String,
+    val sets: Int,
+    val totalReps: Long,
+    val totalVolumeKg: Double,
+)
+
+/**
+ * Aggregated statistics over finished sessions for the Statistics screen.
+ *
+ * Built only from history tables ([WorkoutSession] via
+ * `observeFinishedSessions` and [FinishedSessionSet]); the live catalog is
+ * never read here. `exercises` covers only exercises with at least one
+ * recorded set, ordered by `sets` DESC then `exerciseName`.
+ */
+data class StatisticsData(
+    val completedWorkouts: Int,
+    val totalDurationMs: Long,
+    val totalSets: Int,
+    val uniqueExercises: Int,
+    val exercises: List<ExerciseProgress>,
 )
 /**
  * Application boundary between the execution layer and Room.
@@ -383,6 +415,52 @@ class WorkoutRepository(
 
     fun observeActiveSession(): Flow<WorkoutSession?> =
         workoutDao.observeActiveSession()
+
+    /**
+     * Observes all finished sessions for the History screen.
+     */
+    fun observeHistory(): Flow<List<WorkoutSession>> =
+        workoutDao.observeFinishedSessions()
+
+    /**
+     * Observes aggregated statistics over finished sessions.
+     *
+     * Reactive: Room re-emits both upstream flows when sessions or sets
+     * change, so finishing or editing a workout refreshes statistics with
+     * no manual reload. All aggregation lives here, never in a ViewModel.
+     */
+    fun observeStatistics(): Flow<StatisticsData> =
+        combine(
+            workoutDao.observeFinishedSessions(),
+            workoutDao.observeFinishedSets(),
+        ) { sessions, sets ->
+            val totalDurationMs = sessions.sumOf { session ->
+                (session.finishedAt ?: session.startedAt) - session.startedAt
+            }
+            val exercises = sets
+                .groupBy { it.exerciseId }
+                .map { (_, rows) ->
+                    val first = rows.first()
+                    ExerciseProgress(
+                        exerciseId = first.exerciseId,
+                        exerciseName = first.exerciseName,
+                        sets = rows.size,
+                        totalReps = rows.sumOf { it.actualReps.toLong() },
+                        totalVolumeKg = rows.sumOf { it.actualReps * (it.actualWeight ?: 0.0) },
+                    )
+                }
+                .sortedWith(
+                    compareByDescending<ExerciseProgress> { it.sets }
+                        .thenBy { it.exerciseName },
+                )
+            StatisticsData(
+                completedWorkouts = sessions.size,
+                totalDurationMs = totalDurationMs,
+                totalSets = sets.size,
+                uniqueExercises = exercises.size,
+                exercises = exercises,
+            )
+        }
 
     /**
      * Records one performed set. The new set gets `MAX(setIndex) + 1`

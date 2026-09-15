@@ -11,6 +11,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // The M3 NavigationBar draws its own opaque background over the
+        // system navigation area, so the enforced contrast scrim must be off
+        // (edge-to-edge skill: Scaffold with a bottom bar, SDK 29+).
+        window.isNavigationBarContrastEnforced = false
         setContent {
             HomeFitTheme {
                 HomeFitNavDisplay(
